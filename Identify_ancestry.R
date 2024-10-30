@@ -57,18 +57,6 @@ PC <- PC |>
       mutate(ID = as.character(ID)) |>
       left_join(MIDUS, by = c("ID" = "M2MRMJ_ID_S")) 
 
-ggplot(PC, aes(x = PC1, y = PC2, color = RACE)) +
-  geom_point() +
-  labs(x = "PC 1", y = "PC 2", color = "Race") +
-  theme_minimal()
-
-PC |> filter(RACE %in% c("WHITE",
-                         "REFUSED",
-                         "OTHER (SPECIFY)")) |>
-  ggplot(aes(x = PC1, y = PC2, color = RACE)) +
-  geom_point() +
-  labs(x = "PC 1", y = "PC 2", color = "Race") +
-  theme_minimal()
 
 PC_plot <- function(data, PCX, PCY) {
   data |>
@@ -137,12 +125,155 @@ PCfilt |> select(ID, FAMID) |>
 system2("./plink",
         args = c("--bfile", "data/filtered_binary_files/M2MRMJ_Imputed_autosomes",
                  "--keep", "data/ID_PC_outlier_removed.txt",
-                 "--MAF", "0.01",
-                 "--"
                  "--make-bed",
-                 "--out", "data/filtered_binary_files/M2MRMJ_Imp_EUR_QC"),
+                 "--out", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed"),
         stdout = TRUE, 
         stderr = TRUE)
+
+
+system2("./plink",
+        args = c("--bfile", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed",
+                 "--indep-pairwise", "50", "10", "0.1",
+                 "--out", "data/ld_pruned_snps_for_pca"),
+        stdout = TRUE,
+        stderr = TRUE)
+
+
+system2("./plink",
+        args = c("--bfile",  "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed",
+                 "--extract","data/ld_pruned_snps_for_pca.prune.in",
+                 "--make-bed",
+                 "--out", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_ld_pruned"),
+        stdout = TRUE,
+        stderr = TRUE)
+
+system2("./plink",
+        args = c("--bfile",  "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_ld_pruned",
+                 "--pca",
+                 "--out", "data/pca"),
+        stdout = TRUE,
+        stderr = TRUE)
+
+
+
+PC <- read_table("data/pca.eigenvec", col_names = c("ID", "FAMID", paste0("PC",1:20)))
+
+
+MJ <-  read_csv("data/Imputed_SNPs/MIDJA Phenotypic Data/MIDJAGeneticsMetadata_n=328_07-12-22.csv")
+M2 <-   read_csv("data/Imputed_SNPs/MIDUS 2 Metadata/M2GeneticsMetadata_n=980_07-12-22.csv")
+MR <-  read_csv("data/Imputed_SNPs/MIDUS Refresher Metadata/MRGeneticsMetadata_n=809_07-12-22.csv")
+# 2117 people altogether
+
+MIDUS <- rbind.data.frame(MJ, M2, MR)
+
+PC <- PC |>
+  mutate(ID = as.character(ID)) |>
+  left_join(MIDUS, by = c("ID" = "M2MRMJ_ID_S")) 
+
+
+PC |> filter(PC2 > 0.2) |> PC_plot("PC1", "PC2")
+PC_plot(PC, "PC1", "PC2")
+PC_plot(PC, "PC2", "PC3")
+PC_plot(PC, "PC3", "PC4")
+PC_plot(PC, "PC5", "PC6")
+
+# Above results are nonsense
+# Why? 
+# MAF? 
+# Can try removing related individuals?
+# Try removing MAF, then
+
+#######################################
+#
+# MAF removed
+#
+#######################################
+
+
+
+system2("./plink",
+        args = c("--bfile", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed",
+                 "--maf", "0.05",
+                 "--make-bed",
+                 "--out", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_maf_0.05"),
+        stdout = TRUE,
+        stderr = TRUE)
+
+
+system2("./plink",
+        args = c("--bfile", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_maf_0.05",
+                 "--indep-pairwise", "50", "10", "0.1",
+                 "--out", "data/ld_pruned_snps_for_pca_maf"),
+        stdout = TRUE,
+        stderr = TRUE)
+
+
+system2("./plink",
+        args = c("--bfile",  "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_maf_0.05",
+                 "--extract","data/ld_pruned_snps_for_pca_maf.prune.in",
+                 "--make-bed",
+                 "--out", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_ld_pruned_maf"),
+        stdout = TRUE,
+        stderr = TRUE)
+
+system2("./plink",
+        args = c("--bfile",  "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_ld_pruned_maf",
+                 "--pca",
+                 "--out", "data/pca_maf"),
+        stdout = TRUE,
+        stderr = TRUE)
+
+
+
+
+PC <- read_table("data/pca_maf.eigenvec", col_names = c("ID", "FAMID", paste0("PC",1:20)))
+
+
+MJ <-  read_csv("data/Imputed_SNPs/MIDJA Phenotypic Data/MIDJAGeneticsMetadata_n=328_07-12-22.csv")
+M2 <-   read_csv("data/Imputed_SNPs/MIDUS 2 Metadata/M2GeneticsMetadata_n=980_07-12-22.csv")
+MR <-  read_csv("data/Imputed_SNPs/MIDUS Refresher Metadata/MRGeneticsMetadata_n=809_07-12-22.csv")
+# 2117 people altogether
+
+MIDUS <- rbind.data.frame(MJ, M2, MR)
+
+PC <- PC |>
+  mutate(ID = as.character(ID)) |>
+  left_join(MIDUS, by = c("ID" = "M2MRMJ_ID_S")) 
+
+PC_plot(PC, "PC1", "PC2")
+PC_plot(PC, "PC2", "PC3")
+PC_plot(PC, "PC3", "PC4")
+PC_plot(PC, "PC5", "PC6")
+
+
+# Ok, looking somewhat better?
+# Let's try removing related individuals too
+
+
+system2("./plink",
+        args = c("--bfile", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_maf_0.05",
+                 "--rel-cutoff", "0.025",
+                 "--out", "data/related_individuals"),
+        stdout = TRUE,
+        stderr = TRUE)
+
+
+system2("./plink",
+        args = c("--bfile", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_maf_0.05",
+                 "--keep", "data/related_individuals",
+                 "--make-bed",
+                 "--out", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_maf_0.05_related"),
+        stdout = TRUE,
+        stderr = TRUE)
+
+
+system2("./plink",
+        args = c("--bfile", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_maf_0.05_related",
+                 "--indep-pairwise", "50", "10", "0.1",
+                 "--out", "data/ld_pruned_snps_for_pca_maf_related"),
+        stdout = TRUE,
+        stderr = TRUE)
+
 
 
 
