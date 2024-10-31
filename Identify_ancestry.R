@@ -1,8 +1,30 @@
+#######################################
+#
+# Setup and useful functions
+#
+#######################################
+
 setwd("/home/midus_1114420/edwa0506")
 
-# install.packages("rgl")
 library(tidyverse)
-library(rgl)
+
+
+PC_plot <- function(data, PCX, PCY) {
+  data |>
+    ggplot(aes_string(x = PCX, y = PCY, color = "RACE")) +
+    geom_point() +
+    labs(x = PCX, y = PCY, color = "Race") +
+    theme_minimal()
+}
+
+PC_plot_EUR <- function(data, PCX, PCY) {
+  data |>
+    filter(RACE %in% c("WHITE", "REFUSED", "OTHER (SPECIFY)")) |>
+    ggplot(aes_string(x = PCX, y = PCY, color = "RACE")) +
+    geom_point() +
+    labs(x = PCX, y = PCY, color = "Race") +
+    theme_minimal()
+}
 
 #######################################
 #
@@ -10,17 +32,38 @@ library(rgl)
 #
 #######################################
 
+
+
+# First remove non-autosomes
+# Also remove vary rare variants now in case they case problems e.g in PC
+# ideally want to only exclude based on MAF in the EUR final sample
 system2("./plink",
         args = c("--bfile", "data/Imputed_SNPs/Imputed/M2MRMJ_Imputed",
                  "--chr", "1-22",
+                 "--maf", "0.005",
                  "--make-bed",
                  "--out", "data/filtered_binary_files/M2MRMJ_Imputed_autosomes"),
         stdout = TRUE,
         stderr = TRUE)
 
 
+# Now identify related individuals so we can exclude them from PC calculation
+# we will project PCs onto them 
+
 system2("./plink",
         args = c("--bfile", "data/filtered_binary_files/M2MRMJ_Imputed_autosomes",
+                 "--chr", "1-22",
+                 "--rel-cutoff", "0.025",
+                 "--out", "data/related_individuals"),
+        stdout = TRUE,
+        stderr = TRUE)
+
+fam_file <- read_table("data/filtered_binary_files/M2MRMJ_Imputed_autosomes.fam")
+
+
+system2("./plink",
+        args = c("--bfile", "data/filtered_binary_files/M2MRMJ_Imputed_autosomes",
+                 "--maf", "0.01",
                  "--indep-pairwise", "50", "10", "0.1",
                  "--out", "data/all_races_ld_pruned_snps_for_pca"),
         stdout = TRUE,
@@ -260,7 +303,7 @@ system2("./plink",
 
 system2("./plink",
         args = c("--bfile", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_maf_0.05",
-                 "--keep", "data/related_individuals",
+                 "--keep", "data/related_individuals.rel.id ",
                  "--make-bed",
                  "--out", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_maf_0.05_related"),
         stdout = TRUE,
@@ -274,6 +317,48 @@ system2("./plink",
         stdout = TRUE,
         stderr = TRUE)
 
+
+system2("./plink",
+        args = c("--bfile",  "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_maf_0.05_related",
+                 "--extract","data/ld_pruned_snps_for_pca_maf_related.prune.in",
+                 "--make-bed",
+                 "--out", "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_maf_0.05_related_ld_pruned"),
+        stdout = TRUE,
+        stderr = TRUE)
+
+
+system2("./plink",
+        args = c("--bfile",  "data/filtered_binary_files/M2MRMJ_Imp_outlier_removed_maf_0.05_related_ld_pruned",
+                 "--pca",
+                 "--out", "data/pca_maf_related"),
+        stdout = TRUE,
+        stderr = TRUE)
+
+
+
+PC <- read_table("data/pca_maf_related.eigenvec", col_names = c("ID", "FAMID", paste0("PC",1:20)))
+
+
+MJ <-  read_csv("data/Imputed_SNPs/MIDJA Phenotypic Data/MIDJAGeneticsMetadata_n=328_07-12-22.csv")
+M2 <-   read_csv("data/Imputed_SNPs/MIDUS 2 Metadata/M2GeneticsMetadata_n=980_07-12-22.csv")
+MR <-  read_csv("data/Imputed_SNPs/MIDUS Refresher Metadata/MRGeneticsMetadata_n=809_07-12-22.csv")
+# 2117 people altogether
+
+MIDUS <- rbind.data.frame(MJ, M2, MR)
+
+PC <- PC |>
+  mutate(ID = as.character(ID)) |>
+  left_join(MIDUS, by = c("ID" = "M2MRMJ_ID_S")) 
+
+PC_plot(PC, "PC1", "PC2")
+PC_plot(PC, "PC1", "PC3")
+PC_plot(PC, "PC2", "PC3")
+PC_plot(PC, "PC3", "PC4")
+PC_plot(PC, "PC5", "PC6")
+PC_plot(PC, "PC7", "PC8")
+PC_plot(PC, "PC9", "PC10")
+
+# Looks good tbh. 
 
 
 
