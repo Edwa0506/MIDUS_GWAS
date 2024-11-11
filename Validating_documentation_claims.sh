@@ -30,7 +30,7 @@ wc -l data/M2MRMJ_WellImputed.bim
 # Ok, we've confirmed the file M2MRMJ_Imputed already filters by R2
 # According to the documentation this should be  R2 < 0.5
 
-rm data/*
+rm data/M2MRMJ_WellImputed*
 # remove results of above test
 
 
@@ -45,7 +45,7 @@ wc -l data/M2MRMJ_filtered.bim
 # Documentation says 8 million SNPs remaining
 # Perhaps they removed autosomes too? 
 
-rm data/*
+rm data/M2MRMJ_filtered*
 
 
 plink --bfile data/Imputed_SNPs/Imputed/M2MRMJ_Imputed \
@@ -68,7 +68,7 @@ plink --bfile data/Imputed_SNPs/Imputed/M2MRMJ_Imputed \
 head plink.dupvar 
 # Yep, no duplicates
 
-rm plink.*
+rm plink.dupvar*
 
       
 
